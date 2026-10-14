@@ -39,7 +39,7 @@
     </section>
   </main>
   <dialog id="clearDialog"><h2>清空画布？</h2><p>清空后可以使用“撤销”恢复。</p><form method="dialog"><button value="cancel">取消</button><button value="confirm" class="primary">清空画布</button></form></dialog>
-  <dialog id="startupDialog"><h2>页面未能正常启动</h2><p id="startupProblem"></p><p>本地测试：解压完整文件夹，双击“本地预览.bat”，然后使用浏览器打开的 localhost 地址。</p><p>已部署网站：确认 index.html、app.js、gesture.js 和 assets 文件夹已全部上传，再按 Ctrl+F5 刷新。</p><form method="dialog"><button class="primary">知道了</button></form></dialog>
+  <dialog id="startupDialog"><h2>页面未能正常启动</h2><p id="startupProblem"></p><p>本地测试：解压全部文件，双击“本地预览.bat”，然后使用浏览器打开的 localhost 地址。</p><p>已部署网站：确认新版包内全部文件都与 index.html 放在同一层，再按 Ctrl+F5 刷新。</p><form method="dialog"><button class="primary">知道了</button></form></dialog>
   <noscript><p>浏览器已禁用 JavaScript，请在网站权限中允许 JavaScript 后刷新页面。</p></noscript>
   <script>
     // This classic bootstrap also runs for file:// pages, where module scripts
@@ -84,7 +84,7 @@
         if (ready || failure) return;
         slow = true; status.textContent = '程序加载较慢，请检查网络；初始化完成后才能开启摄像头。';
       }, 12000);
-      import(new URL('./app.js?v=20261014-camera-fix', location.href).href).catch(error => {
+      import(new URL('./app.js?v=flat-20261014', location.href).href).catch(error => {
         clearTimeout(timer);
         fail('画画程序加载失败：' + (error.message || error) + '。请确认 app.js、gesture.js 上传完整，并使用新版 Chrome 或 Edge。');
       });

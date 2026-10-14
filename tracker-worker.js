@@ -1,11 +1,14 @@
-import {FilesetResolver, HandLandmarker} from './assets/vendor/vision_bundle.mjs';
 let tracker;
 self.onmessage = async ({data}) => {
   if (data.type === 'init') {
     try {
-      const vision = await FilesetResolver.forVisionTasks(new URL('./assets/vendor/wasm', import.meta.url).href, true);
+      const {HandLandmarker} = await import('./vision-bundle.js');
+      const vision = {
+        wasmLoaderPath: new URL('./vision_wasm_module_internal.js', import.meta.url).href,
+        wasmBinaryPath: new URL('./vision_wasm_module_internal.wasm', import.meta.url).href
+      };
       tracker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {modelAssetPath: new URL('./assets/models/hand_landmarker.task', import.meta.url).href, delegate: 'CPU'},
+        baseOptions: {modelAssetPath: new URL('./hand_landmarker.task', import.meta.url).href, delegate: 'CPU'},
         runningMode: 'VIDEO', numHands: 1,
         minHandDetectionConfidence: .55, minHandPresenceConfidence: .55, minTrackingConfidence: .55
       });

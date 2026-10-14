@@ -199,11 +199,35 @@ function stopCamera(message='摄像头已关闭。仍可使用鼠标或触屏画
 }
 function cameraError(error) {
   const messages={NotAllowedError:'摄像头权限未允许。请在地址栏的网站权限中允许摄像头后重试。',NotFoundError:'没有找到摄像头，请连接摄像头后重试。',NotReadableError:'摄像头可能被其他程序占用，请关闭占用程序后重试。',OverconstrainedError:'当前摄像头不支持请求的设置，请尝试其他设备。'};
-  stopCamera();status(messages[error.name] || `启动失败：${error.message || error}。请确认完整上传 assets 文件夹，并使用新版浏览器。`,true);
+  stopCamera();status(messages[error.name] || `启动失败：${error.message || error}。请确认新版包内全部文件均上传到 index.html 同一层，并使用新版 Chrome 或 Edge。`,true);
 }
-function initWorker(token) {
+async function checkResource(path, script = false) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(new URL(path, import.meta.url), {method:'HEAD', cache:'no-store', signal:controller.signal});
+    if (!response.ok) throw new Error(`缺少或无法访问文件 ${path}（HTTP ${response.status}），请将此文件上传到 index.html 同一层`);
+    const type = response.headers.get('Content-Type') || '';
+    if (script && !/^(application|text)\/(x-)?(javascript|ecmascript)\b/i.test(type)) {
+      throw new Error(`文件 ${path} 的类型是 ${type || '未知'}，无法作为脚本加载。请检查上传的文件内容及网站文件类型`);
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error(`检查文件 ${path} 超时，请检查网络后重试`);
+    if (error instanceof TypeError) throw new Error(`无法连接文件 ${path}，请检查网络和文件上传是否完整`);
+    throw error;
+  } finally {clearTimeout(timeout);}
+}
+async function initWorker(token) {
+  await Promise.all([
+    checkResource('./tracker-worker.js',true),
+    checkResource('./vision-bundle.js',true),
+    checkResource('./vision_wasm_module_internal.js',true),
+    checkResource('./vision_wasm_module_internal.wasm'),
+    checkResource('./hand_landmarker.task')
+  ]);
+  if (token !== session) throw new Error('已取消启动');
   return new Promise((resolve,reject)=>{
-    worker=new Worker(new URL('./tracker-worker.js',import.meta.url),{type:'module'});
+    worker=new Worker(new URL('./tracker-worker.js?v=flat-20261014',import.meta.url),{type:'module'});
     const timer=setTimeout(()=>reject(new Error('模型加载超时，请检查网站模型文件是否完整')),45000);
     worker.onerror=e=>{clearTimeout(timer);const error=new Error(e.message || '手势识别线程启动失败');if(starting)reject(error);else if(token===session)cameraError(error);};
     worker.onmessage=({data})=>{
