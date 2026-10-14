@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b101a">
+  <meta name="description" content="打开摄像头，捏合手指，在空中画下灵感。所有手势识别均在浏览器本地完成。">
+  <title>隔空画画 · AIR CANVAS</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="header">
+    <a class="brand" href="./"><span class="brand-icon" aria-hidden="true">✳</span><span>隔空画画 <small>AIR CANVAS</small></span></a>
+    <span class="privacy"><i></i>画面仅在本地处理</span>
+  </header>
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="intro"><p class="eyebrow">让灵感，越过指尖</p><h1>空气就是<br>你的画布。</h1><p>捏合落笔，松开抬笔。<br>把一闪而过的想法画出来。</p></section>
+      <section class="panel camera-panel">
+        <div class="section-title"><h2>摄像头</h2><span id="cameraBadge" class="badge">未开启</span></div>
+        <div class="camera-view"><video id="video" autoplay playsinline muted></video><canvas id="handPreview" width="320" height="240" aria-hidden="true"></canvas><div id="cameraPlaceholder">✋<span>让手完整出现在画面中</span></div></div>
+        <button id="cameraButton" class="primary">开启摄像头</button>
+        <p id="status" class="status" role="status" aria-live="polite">也可以直接用鼠标或触屏画画。</p>
+        <div class="live-state"><span id="gestureLabel">等待手势</span><span id="fps">— FPS</span></div>
+      </section>
+      <section class="panel">
+        <div class="section-title"><h2>画笔</h2><span class="quiet">F 切换</span></div>
+        <div id="brushes" class="brush-grid" aria-label="选择画笔"></div>
+        <div class="section-title color-title"><h2>颜色</h2><span id="colorLabel" class="quiet">青色</span></div>
+        <div id="colors" class="colors" aria-label="选择颜色"></div>
+        <label class="slider-label" for="size">笔触大小 <output id="sizeValue">6</output></label><input id="size" type="range" min="2" max="30" value="6">
+      </section>
+      <details class="panel tips" open><summary>手势小抄</summary><ul><li><span>🤏 捏合</span><span>落笔绘画</span></li><li><span>🖐 张开手掌</span><span>保持半秒，移动画作</span></li><li><span>👍 竖拇指</span><span>保持半秒，撤销</span></li><li><span>✊ 握拳</span><span>保持半秒，切换橡皮</span></li></ul><label class="check"><input id="gestureActions" type="checkbox" checked>启用手势快捷操作</label><label class="check"><input id="mirror" type="checkbox" checked>镜像摄像头</label><label class="slider-label" for="sensitivity">捏合灵敏度 <output id="sensitivityValue">0.38</output></label><input id="sensitivity" type="range" min="0.20" max="0.60" step="0.01" value="0.38"></details>
+    </aside>
+    <section class="drawing-area" aria-label="画画工作区">
+      <div class="toolbar"><div class="canvas-title"><span class="dot"></span><strong>自由画布</strong><span id="strokeCount">0 笔</span></div><div class="tools"><button id="undo" title="撤销（Ctrl+Z / U）" disabled>↶ 撤销</button><button id="redo" title="重做（Ctrl+Shift+Z）" disabled>↷ 重做</button><button id="background" title="切换黑白背景">◐ 背景</button><button id="clear">清空</button><button id="save" class="save">↓ 保存 PNG</button></div></div>
+      <div id="canvasFrame" class="canvas-frame"><canvas id="drawing" width="1280" height="800" aria-label="画布：鼠标按住或触屏拖动即可绘画"></canvas><div id="cursor" class="cursor" hidden></div><div id="emptyHint" class="empty-hint"><div class="hint-orbit">✦</div><h2>第一笔，从这里开始</h2><p>开启摄像头，捏合拇指与食指<br>或按住鼠标 / 触屏，直接画画</p><span>你的画作，只属于你</span></div></div>
+      <footer class="canvas-footer"><span id="penState">准备就绪</span><span>U 撤销 · F 换笔 · E 橡皮 · S 保存 · 1–7 换色</span></footer>
+    </section>
+  </main>
+  <dialog id="clearDialog"><h2>清空画布？</h2><p>清空后可以使用“撤销”恢复。</p><form method="dialog"><button value="cancel">取消</button><button value="confirm" class="primary">清空画布</button></form></dialog>
+  <dialog id="startupDialog"><h2>页面未能正常启动</h2><p id="startupProblem"></p><p>本地测试：解压完整文件夹，双击“本地预览.bat”，然后使用浏览器打开的 localhost 地址。</p><p>已部署网站：确认 index.html、app.js、gesture.js 和 assets 文件夹已全部上传，再按 Ctrl+F5 刷新。</p><form method="dialog"><button class="primary">知道了</button></form></dialog>
+  <noscript><p>浏览器已禁用 JavaScript，请在网站权限中允许 JavaScript 后刷新页面。</p></noscript>
+  <script>
+    // This classic bootstrap also runs for file:// pages, where module scripts
+    // are blocked. Always give the camera button a working feedback handler.
+    (() => {
+      const button = document.getElementById('cameraButton');
+      const status = document.getElementById('status');
+      const dialog = document.getElementById('startupDialog');
+      let ready = false, failure = '', slow = false;
+      const fail = message => {
+        if (ready) return;
+        failure = message;
+        status.textContent = message;
+        status.classList.add('error');
+        button.textContent = '查看启动问题';
+        document.getElementById('cameraBadge').textContent = '启动失败';
+        document.getElementById('startupProblem').textContent = message;
+      };
+      button.addEventListener('click', event => {
+        if (ready) return;
+        event.stopImmediatePropagation();
+        if (failure) {
+          if (typeof dialog.showModal === 'function') dialog.showModal();
+          else window.alert(failure);
+        } else {
+          status.textContent = slow ? '程序仍在加载，请检查网络，并确认 app.js、gesture.js 已上传。' : '画画程序正在初始化，请稍候再点击。';
+        }
+      }, true);
+      window.__airCanvasBoot = {ready() {
+        ready = true; failure = ''; clearTimeout(timer);
+        button.textContent = '开启摄像头';
+        document.getElementById('cameraBadge').textContent = '未开启';
+        status.textContent = '也可以直接用鼠标或触屏画画。';
+        status.classList.remove('error');
+      }};
+      if (location.protocol === 'file:') {
+        fail('直接双击 index.html 会被浏览器拦截脚本。请关闭此页，使用“本地预览.bat”或 GitHub Pages 网站地址打开。');
+        return;
+      }
+      button.textContent = '正在初始化…';
+      const timer = setTimeout(() => {
+        if (ready || failure) return;
+        slow = true; status.textContent = '程序加载较慢，请检查网络；初始化完成后才能开启摄像头。';
+      }, 12000);
+      import(new URL('./app.js?v=20261014-camera-fix', location.href).href).catch(error => {
+        clearTimeout(timer);
+        fail('画画程序加载失败：' + (error.message || error) + '。请确认 app.js、gesture.js 上传完整，并使用新版 Chrome 或 Edge。');
+      });
+    })();
+  </script>
+</body>
+</html>
